@@ -1,3 +1,6 @@
+require 'fileutils'
+require 'net/http'
+require 'json'
 require 'java_buildpack/framework'
 
 
@@ -19,7 +22,7 @@ module JavaBuildpack
       #
       # @return [Void]
       def compile
-
+        response = request poms
       end
 
       # Modifies the application's runtime configuration. The component is expected to transform members of the +context+
@@ -41,6 +44,38 @@ module JavaBuildpack
         'https://cf-gate:5000/api'
       end
 
+      def poms
+        (filesystem_poms + jar_poms).flatten
+      end
+
+      def jar_poms
+        (@application.root + '**/*.jar')
+          .glob(File::FNM_DOTMATCH).reject(&:directory?).sort
+          .map do |jar|
+          `unzip -Z1 #{jar} | grep "pom\.xml"`.split("\n").map do |pom|
+            `unzip -p #{jar} #{pom}`
+          end
+        end
+      end
+
+      def filesystem_poms
+        (@application.root + '**/pom.xml').glob(File::FNM_DOTMATCH).reject(&:directory?).sort.map { |f| File.read(f) }
+      end
+
+      def request(poms)
+        uri       = URI("#{api_url}")
+
+        body = { 'encoding' => 'plain', 'files' => { 'target' => {} } }
+        body['files'] = poms.map { |pom| { 'contents' => pom } } if poms.length > 1
+
+        request                  = Net::HTTP::Post.new(uri)
+        request['Content-Type']  = 'application/json'
+        request.body             = body.to_json
+
+        Net::HTTP.start(uri.host, uri.port) do |http|
+          http.request(request)
+        end
+      end
     end
   end
 end
