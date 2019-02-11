@@ -1,3 +1,6 @@
+require 'java_buildpack/framework'
+
+
 module JavaBuildpack
   module Framework
     class SnykExercise < JavaBuildpack::Component::BaseComponent
@@ -7,7 +10,7 @@ module JavaBuildpack
       #                                      an +Array<String>+ that uniquely identifies the component (e.g.
       #                                      +open_jdk=1.7.0_40+).  Otherwise, +nil+.
       def detect
-
+        enabled? ? self.class.to_s: nil
       end
 
       # Modifies the application's file system.  The component is expected to transform the application's file system in
@@ -29,6 +32,15 @@ module JavaBuildpack
       #                        components are expected to return the command required to run the application.
       def release
       end
+
+      def enabled?
+        true
+      end
+
+      def api_url
+        'https://cf-gate:5000/api'
+      end
+
     end
   end
 end
